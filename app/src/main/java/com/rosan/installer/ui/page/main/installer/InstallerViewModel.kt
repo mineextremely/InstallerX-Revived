@@ -94,7 +94,9 @@ class InstallerViewModel(
             viewSettings = local.viewSettings.copy(
                 useBlur = prefs.useBlur,
                 closeSessionCountDown = prefs.closeSessionCountDown,
+                hideIdenticalComparisons = prefs.hideIdenticalInstallComparisons,
                 showExtendedMenu = prefs.showDialogInstallExtendedMenu,
+                expandTemporarySettingsByDefault = prefs.expandDialogTemporarySettingsByDefault,
                 showSmartSuggestion = prefs.showSmartSuggestion,
                 disableNotificationOnDismiss = prefs.disableNotificationForDialogInstall,
                 versionCompareInSingleLine = prefs.versionCompareInSingleLine,
@@ -169,6 +171,7 @@ class InstallerViewModel(
     fun dispatch(action: InstallerViewAction) {
         when (action) {
             is InstallerViewAction.CollectSession -> collectRepo(action.session)
+            is InstallerViewAction.PrepareClose -> session.prepareClose()
             is InstallerViewAction.Close -> close()
             is InstallerViewAction.Cancel -> cancel()
             is InstallerViewAction.Analyse -> analyse()
