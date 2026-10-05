@@ -34,3 +34,4 @@ keystore/
 /.agents
 CLAUDE.md
 /logs
+/GithubActionsLogs/
