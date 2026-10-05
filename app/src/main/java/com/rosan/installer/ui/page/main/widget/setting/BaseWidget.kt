@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -94,7 +95,7 @@ fun BaseWidget(
     clickHaptic: HapticFeedbackType? = HapticFeedbackType.VirtualKey,
     trailingDivider: Boolean = false,
     foreContent: @Composable BoxScope.() -> Unit = {},
-    trailingContent: @Composable BoxScope.(interactionSource: MutableInteractionSource) -> Unit = {}
+    trailingContent: @Composable BoxScope.(interactionSource: MutableInteractionSource) -> Unit = {},
 ) {
     val haptic = LocalHapticFeedback.current
     val alpha = if (enabled) 1f else 0.38f
@@ -111,8 +112,14 @@ fun BaseWidget(
         }
     }
 
-    val density = LocalDensity.current
-    val dynamicInternalPadding = (4 * density.fontScale).dp
+    /*
+     * Material 3 ListItem uses fixed 56dp/72dp minimum heights that do not shrink with fontScale,
+     * leaving excessive vertical space at smaller system font sizes. Recheck this workaround when
+     * updating Material 3 in case ListItem starts adapting its minimum height internally.
+     */
+    val fontScale = LocalDensity.current.fontScale
+    val defaultMinHeight = if (description == null) 56.dp else 72.dp
+    val adaptiveMinHeight = (defaultMinHeight * fontScale).coerceAtLeast(48.dp)
 
     val baseShape = LocalSegmentedItemShape.current
 
@@ -165,7 +172,7 @@ fun BaseWidget(
         disabledContentColor = baseContentColor,
         disabledLeadingContentColor = resolvedIconColor,
         disabledTrailingContentColor = resolvedIconColor,
-        disabledSupportingContentColor = finalDescriptionColor
+        disabledSupportingContentColor = finalDescriptionColor,
     )
 
     val shapes = ListItemDefaults.shapes(
@@ -173,10 +180,12 @@ fun BaseWidget(
         pressedShape = RoundedCornerShape(CornerRadius),
         selectedShape = baseShape,
         focusedShape = baseShape,
-        hoveredShape = baseShape
+        hoveredShape = baseShape,
     )
 
-    val itemModifier = modifier.fillMaxWidth()
+    val itemModifier = modifier
+        .fillMaxWidth()
+        .heightIn(min = adaptiveMinHeight)
 
     val leadingContent: (@Composable () -> Unit)? =
         if (icon != null || iconPlaceholder) {
@@ -185,13 +194,13 @@ fun BaseWidget(
                     modifier = Modifier
                         .size(24.dp)
                         .alpha(alpha),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (icon != null) {
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
-                            tint = resolvedIconColor
+                            tint = resolvedIconColor,
                         )
                     } else {
                         Spacer(modifier = Modifier.size(24.dp))
@@ -208,9 +217,7 @@ fun BaseWidget(
                 Text(
                     text = text,
                     style = descriptionStyle,
-                    modifier = Modifier
-                        .alpha(alpha)
-                        .padding(bottom = dynamicInternalPadding)
+                    modifier = Modifier.alpha(alpha),
                 )
             }
         }
@@ -218,7 +225,7 @@ fun BaseWidget(
     val trailing: @Composable () -> Unit = {
         Row(
             modifier = Modifier.alpha(alpha),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             if (trailingDivider) VerticalDivider(modifier = Modifier.height(32.dp))
 
@@ -230,14 +237,14 @@ fun BaseWidget(
                                 enabled = enabled,
                                 interactionSource = trailingInteractionSource,
                                 indication = LocalIndication.current,
-                                onClick = handleTrailingClick
+                                onClick = handleTrailingClick,
                             )
                         } else {
                             Modifier
-                        }
+                        },
                     )
                     .padding(start = if (trailingDivider) 16.dp else 0.dp),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 trailingContent(trailingContentInteractionSource)
             }
@@ -246,16 +253,11 @@ fun BaseWidget(
 
     val headline: @Composable () -> Unit = {
         Box(
-            modifier = Modifier
-                .alpha(alpha)
-                .padding(
-                    top = dynamicInternalPadding,
-                    bottom = if (description == null) dynamicInternalPadding else 0.dp
-                )
+            modifier = Modifier.alpha(alpha),
         ) {
             Text(
                 text = title,
-                style = titleStyle
+                style = titleStyle,
             )
 
             foreContent()
@@ -278,7 +280,7 @@ fun BaseWidget(
             supportingContent = supportingContent,
             trailingContent = trailing,
             interactionSource = interactionSource,
-            content = headline
+            content = headline,
         )
     } else {
         /*
@@ -296,13 +298,13 @@ fun BaseWidget(
                         Modifier.semantics { disabled() }
                     } else {
                         Modifier
-                    }
+                    },
                 ),
             colors = colors,
             leadingContent = leadingContent,
             supportingContent = supportingContent,
             trailingContent = trailing,
-            content = headline
+            content = headline,
         )
     }
 }

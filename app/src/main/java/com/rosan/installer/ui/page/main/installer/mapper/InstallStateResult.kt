@@ -50,6 +50,8 @@ data class InstallNoticeResources(
     val labelSignatureNoCertificates: String,
     val tagSdk: String,
     val textSdkIncompatible: String,
+    val tagOplusOsdk: String,
+    val textOplusOsdkIncompatible: String,
     val tagArch32: String,
     val textArch32: String,
     val tagEmulated: String,
@@ -64,11 +66,12 @@ data class InstallNoticeResources(
     // Color
     val errorColor: Color,
     val tertiaryColor: Color,
-    val primaryColor: Color
+    val primaryColor: Color,
 )
 
 // Return type containing the list and the button ID
 data class InstallStateResult(
     val notices: List<NoticeModel>,
-    val buttonTextId: Int
+    val buttonTextId: Int,
+    val isOplusOsdkIncompatible: Boolean,
 )

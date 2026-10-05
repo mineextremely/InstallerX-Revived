@@ -501,7 +501,7 @@
     <string name="exception_resolve_failed">URI 확인 실패</string>
     <string name="exception_resolve_failed_link_not_valid">이 링크에는 유효한 파일이 없습니다</string>
     <string name="exception_initiator_not_visible">패키지 가시성 제한으로 권한이 거부되었습니다. 설치를 요청한 앱이 InstallerX에 보이지 않습니다. \'Hide My Applist\' 같은 모듈을 사용 중이라면 InstallerX를 허용 목록에 추가하세요</string>
-    <string name="exception_resolve_failed_no_internet_access">이 버전은 인터넷에 접근할 수 없습니다. 이 기능을 사용하려면 인터넷 지원 버전을 다시 설치하세요</string>
+    <string name="exception_resolve_failed_no_internet_access">앱 설정에서 인터넷 접속이 비활성화되어 있습니다. 이 기능을 사용하려면 네트워크 설정에서 인터넷 접속을 활성화하세요.</string>
     <string name="exception_analyse_failed_all_files_unsupported">지원되지 않는 파일입니다</string>
     <string name="exception_authentication_failed">사용자 인증 실패</string>
     <string name="exception_install_failed_already_exists">이 앱 버전이 이미 설치되어 있습니다. 제거한 뒤 다시 시도하세요</string>

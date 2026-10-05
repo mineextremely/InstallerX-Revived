@@ -3,16 +3,18 @@
 package com.rosan.installer.data.engine.parser
 
 import com.rosan.installer.domain.engine.model.source.DataEntity
+import com.rosan.installer.domain.engine.model.source.openZipEntryInputStream
 import com.rosan.installer.domain.engine.model.source.requireSupportedZipCompressionMethod
-import org.apache.commons.compress.archivers.EntryStreamOffsets
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
-import org.apache.commons.compress.archivers.zip.ZipFile
 import java.io.File
+import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.nio.channels.FileChannel
 import java.nio.charset.Charset
 import java.nio.file.StandardOpenOption
+import org.apache.commons.compress.archivers.EntryStreamOffsets
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipFile
 
 internal class CommonsZipException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
@@ -32,21 +34,18 @@ internal class CommonsZipFileProvider {
      * Opens only the central directory up front. Entry local headers are resolved lazily if their
      * payloads are requested, which keeps metadata-only analysis fast for large APKs.
      */
-    fun openMetadata(path: String): ZipFile =
-        open(File(path), ignoreLocalFileHeaders = true)
+    fun openMetadata(path: String): ZipFile = open(File(path), ignoreLocalFileHeaders = true)
 
-    fun openMetadata(file: File): ZipFile =
-        open(file, ignoreLocalFileHeaders = true)
+    fun openMetadata(file: File): ZipFile = open(file, ignoreLocalFileHeaders = true)
 
-    fun openMetadata(file: DataEntity.FileEntity): ZipFile =
-        open(file, ignoreLocalFileHeaders = true)
+    fun openMetadata(file: DataEntity.FileEntity): ZipFile = open(file, ignoreLocalFileHeaders = true)
 
-    /** Opens an entry payload after enforcing InstallerX's STORE/DEFLATE-only policy. */
-    fun openEntry(zipFile: ZipFile, entry: ZipArchiveEntry): InputStream {
-        validateEntry(entry)
-        return synchronized(zipFile) {
-            zipFile.getInputStream(entry)
-        }
+    /** Opens an entry payload after checking its compression method against the bundled decoders. */
+    fun openEntry(zipFile: ZipFile, entry: ZipArchiveEntry): InputStream = synchronized(zipFile) {
+        // With lazy local headers, opening another entry seeks the same channel used by
+        // active payload streams. Commons locks payload reads on the channel, but does not
+        // use that lock for header resolution. Guard both operations with our archive lock.
+        LockedEntryInputStream(openZipEntryInputStream(zipFile, entry), zipFile)
     }
 
     /** Resolves the raw byte range of a stored entry without reading its payload. */
@@ -61,7 +60,7 @@ internal class CommonsZipFileProvider {
         return resolveDataRange(zipFile, entry)
     }
 
-    /** Resolves compressed payload bytes for STORE/DEFLATE entries while metadata is still open. */
+    /** Resolves compressed payload bytes while metadata is still open. */
     fun resolveDataRange(zipFile: ZipFile, entry: ZipArchiveEntry): StoredDataRange? {
         if (entry.compressedSize < 0L) return null
         return synchronized(zipFile) {
@@ -86,33 +85,53 @@ internal class CommonsZipFileProvider {
         return open(channel, file.path, ignoreLocalFileHeaders)
     }
 
-    private fun open(file: DataEntity.FileEntity, ignoreLocalFileHeaders: Boolean): ZipFile =
-        open(file.openChannel(), file.path, ignoreLocalFileHeaders)
+    private fun open(file: DataEntity.FileEntity, ignoreLocalFileHeaders: Boolean): ZipFile = open(file.openChannel(), file.path, ignoreLocalFileHeaders)
 
     private fun open(
         channel: java.nio.channels.SeekableByteChannel,
         displayName: String,
-        ignoreLocalFileHeaders: Boolean
-    ): ZipFile {
-        return try {
-            ZipFile.builder()
-                .setSeekableByteChannel(channel)
-                // ZIP names without the UTF-8 flag use CP437 by specification. EFS entries still
-                // override this charset to UTF-8 inside Commons Compress.
-                .setCharset(ZIP_FALLBACK_CHARSET)
-                .setIgnoreLocalFileHeader(ignoreLocalFileHeaders)
-                .get()
-        } catch (error: Exception) {
-            try {
-                channel.close()
-            } catch (closeError: Exception) {
-                error.addSuppressed(closeError)
-            }
-            throw CommonsZipException("Failed to open ZIP archive: $displayName", error)
+        ignoreLocalFileHeaders: Boolean,
+    ): ZipFile = try {
+        ZipFile.builder()
+            .setSeekableByteChannel(channel)
+            // ZIP names without the UTF-8 flag use CP437 by specification. EFS entries still
+            // override this charset to UTF-8 inside Commons Compress.
+            .setCharset(ZIP_FALLBACK_CHARSET)
+            .setIgnoreLocalFileHeader(ignoreLocalFileHeaders)
+            .get()
+    } catch (error: Exception) {
+        try {
+            channel.close()
+        } catch (closeError: Exception) {
+            error.addSuppressed(closeError)
         }
+        throw CommonsZipException("Failed to open ZIP archive: $displayName", error)
     }
 
     private companion object {
         val ZIP_FALLBACK_CHARSET: Charset = Charset.forName("Cp437")
+    }
+
+    private class LockedEntryInputStream(
+        input: InputStream,
+        private val archiveLock: ZipFile,
+    ) : FilterInputStream(input) {
+        override fun read(): Int = synchronized(archiveLock) { `in`.read() }
+
+        override fun read(buffer: ByteArray): Int = read(buffer, 0, buffer.size)
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int = synchronized(archiveLock) {
+            `in`.read(buffer, offset, length)
+        }
+
+        override fun skip(count: Long): Long = synchronized(archiveLock) { `in`.skip(count) }
+
+        override fun available(): Int = synchronized(archiveLock) { `in`.available() }
+
+        override fun mark(readlimit: Int) = synchronized(archiveLock) { `in`.mark(readlimit) }
+
+        override fun reset() = synchronized(archiveLock) { `in`.reset() }
+
+        override fun close() = synchronized(archiveLock) { `in`.close() }
     }
 }

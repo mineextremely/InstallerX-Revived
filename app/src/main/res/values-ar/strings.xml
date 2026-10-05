@@ -370,7 +370,7 @@
     <string name="theme_settings_miuix_custom_colors_desc">تخصيص ألوان السمة ضمن نمط Miuix</string>
     <string name="lab">المختبر</string>
     <string name="lab_desc">الوصول إلى الميزات التجريبية والمطورة</string>
-    <string name="updating">جاري التحديث. . .</string>
+    <string name="updating">جاري التحديث…</string>
     <string name="update_available">تحديث متاح: %1$s</string>
     <string name="get_update_directly">احصل على التحديث مباشرة</string>
     <string name="get_update_directly_desc">احصل على تحديث مباشرة من GitHub وثبت، لن يبقى أي ذاكرة تخزين مؤقت</string>

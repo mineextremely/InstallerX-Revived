@@ -20,26 +20,33 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import timber.log.Timber
 
-class ThemeStateProviderImpl(
-    appSettingsRepo: AppSettingsRepository,
-    appScope: CoroutineScope
-) : ThemeStateProvider {
+class ThemeStateProviderImpl(appSettingsRepo: AppSettingsRepository, appScope: CoroutineScope) : ThemeStateProvider {
     override val themeStateFlow: StateFlow<ThemeState> = combine(
         appSettingsRepo.preferencesFlow,
-        getWallpaperColorsFlow()
+        getWallpaperColorsFlow(),
     ) { prefs, wallpaperColors ->
-        val manualSeedColor = prefs.seedColorInt
+        val manualSeedColor =
+            if (PresetColors.any { it.color.toArgb() == prefs.seedColorInt }) {
+                prefs.seedColorInt
+            } else {
+                PresetColors[0].color.toArgb()
+            }
+        val manualWallpaperSeedColor = prefs.wallpaperSeedColorInt
 
         val effectiveSeedColor: Int =
             if (prefs.useDynamicColor && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
                 if (!wallpaperColors.isNullOrEmpty()) {
-                    if (wallpaperColors.contains(manualSeedColor)) {
-                        manualSeedColor
-                    } else wallpaperColors[0]
-                } else manualSeedColor
-            } else if (PresetColors.any { it.color.toArgb() == manualSeedColor }) {
+                    if (wallpaperColors.contains(manualWallpaperSeedColor)) {
+                        manualWallpaperSeedColor
+                    } else {
+                        wallpaperColors[0]
+                    }
+                } else {
+                    manualSeedColor
+                }
+            } else {
                 manualSeedColor
-            } else PresetColors[0].color.toArgb()
+            }
 
         ThemeState(
             isLoaded = true,
@@ -53,12 +60,12 @@ class ThemeStateProviderImpl(
             seedColor = effectiveSeedColor,
             useBlur = prefs.useBlur,
             predictiveBackAnimation = prefs.predictiveBackAnimation,
-            predictiveBackExitDirection = prefs.predictiveBackExitDirection
+            predictiveBackExitDirection = prefs.predictiveBackExitDirection,
         )
     }.stateIn(
         scope = appScope,
         started = SharingStarted.Eagerly,
-        initialValue = ThemeState()
+        initialValue = ThemeState(),
     )
 
     private fun getWallpaperColorsFlow(): Flow<List<Int>?> = flow {

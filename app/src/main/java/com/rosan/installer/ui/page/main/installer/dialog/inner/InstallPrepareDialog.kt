@@ -29,11 +29,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rosan.installer.R
-import com.rosan.installer.core.env.DeviceConfig
 import com.rosan.installer.core.device.model.Manufacturer
+import com.rosan.installer.core.env.DeviceConfig
+import com.rosan.installer.domain.device.provider.DeviceCapabilityProvider
 import com.rosan.installer.domain.engine.model.packageinfo.AppEntity
-import com.rosan.installer.domain.engine.model.source.DataType
 import com.rosan.installer.domain.engine.model.packageinfo.sortedBest
+import com.rosan.installer.domain.engine.model.source.DataType
 import com.rosan.installer.domain.engine.usecase.AnalyzeInstallStateUseCase
 import com.rosan.installer.ui.icons.AppIcons
 import com.rosan.installer.ui.page.main.installer.InstallerViewAction
@@ -52,11 +53,10 @@ import com.rosan.installer.ui.page.main.widget.chip.InstallInfoChipGroup
 import org.koin.compose.koinInject
 
 @Composable
-private fun installPrepareEmptyDialog(
-    viewModel: InstallerViewModel
-) = DialogParams(
+private fun installPrepareEmptyDialog(viewModel: InstallerViewModel) = DialogParams(
     icon = DialogInnerParams(
-        DialogParamsType.IconError.id, failedIcon
+        DialogParamsType.IconError.id,
+        failedIcon,
     ),
     title = DialogInnerParams(
         DialogParamsType.InstallerPrepare.id,
@@ -64,12 +64,12 @@ private fun installPrepareEmptyDialog(
         Text(stringResource(R.string.installer_prepare_install))
     },
     text = DialogInnerParams(
-        DialogParamsType.InstallerPrepareEmpty.id
+        DialogParamsType.InstallerPrepareEmpty.id,
     ) {
         Text(stringResource(R.string.installer_prepare_install_empty))
     },
     buttons = dialogButtons(
-        DialogParamsType.ButtonsCancel.id
+        DialogParamsType.ButtonsCancel.id,
     ) {
         listOf(
             DialogButton(stringResource(R.string.previous)) {
@@ -77,17 +77,16 @@ private fun installPrepareEmptyDialog(
             },
             DialogButton(stringResource(R.string.cancel)) {
                 viewModel.dispatch(InstallerViewAction.Close)
-            }
+            },
         )
-    }
+    },
 )
 
 @Composable
-private fun installPrepareTooManyDialog(
-    viewModel: InstallerViewModel
-) = DialogParams(
+private fun installPrepareTooManyDialog(viewModel: InstallerViewModel) = DialogParams(
     icon = DialogInnerParams(
-        DialogParamsType.IconError.id, failedIcon
+        DialogParamsType.IconError.id,
+        failedIcon,
     ),
     title = DialogInnerParams(
         DialogParamsType.InstallerPrepare.id,
@@ -95,12 +94,12 @@ private fun installPrepareTooManyDialog(
         Text(stringResource(R.string.installer_prepare_install))
     },
     text = DialogInnerParams(
-        DialogParamsType.InstallerPrepareTooMany.id
+        DialogParamsType.InstallerPrepareTooMany.id,
     ) {
         Text(stringResource(R.string.installer_prepare_install_too_many))
     },
     buttons = dialogButtons(
-        DialogParamsType.ButtonsCancel.id
+        DialogParamsType.ButtonsCancel.id,
     ) {
         listOf(
             DialogButton(stringResource(R.string.previous)) {
@@ -108,15 +107,13 @@ private fun installPrepareTooManyDialog(
             },
             DialogButton(stringResource(R.string.cancel)) {
                 viewModel.dispatch(InstallerViewAction.Close)
-            }
+            },
         )
-    }
+    },
 )
 
 @Composable
-fun installPrepareDialog(
-    viewModel: InstallerViewModel
-): DialogParams {
+fun installPrepareDialog(viewModel: InstallerViewModel): DialogParams {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val config = uiState.config
     val currentPackageName = uiState.currentPackageName
@@ -150,8 +147,8 @@ fun installPrepareDialog(
 
     val isPureSplit = primaryEntity is AppEntity.SplitEntity
     val isBundleSplitUpdate = primaryEntity is AppEntity.BaseEntity &&
-            entityToInstall == null &&
-            selectedEntities.isNotEmpty()
+        entityToInstall == null &&
+        selectedEntities.isNotEmpty()
 
     val isSplitUpdateMode = (isBundleSplitUpdate || isPureSplit) && preInstallAppInfo != null
 
@@ -161,7 +158,7 @@ fun installPrepareDialog(
     // Call InstallInfoDialog for base structure
     val baseParams = installInfoDialog(
         viewModel = viewModel,
-        onTitleExtraClick = { showChips = !showChips }
+        onTitleExtraClick = { showChips = !showChips },
     )
 
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -212,6 +209,8 @@ fun installPrepareDialog(
     val labelSignatureNoCertificates = stringResource(R.string.installer_signature_no_certificates)
     val tagSdk = stringResource(R.string.tag_sdk)
     val sdkIncompatibleWarning = stringResource(R.string.installer_prepare_sdk_incompatible)
+    val tagOplusOsdk = stringResource(R.string.tag_oplus_osdk)
+    val oplusOsdkIncompatibleWarning = stringResource(R.string.installer_prepare_oplus_osdk_incompatible)
     val tagArch32 = stringResource(R.string.tag_arch_32)
     val textArch32 = stringResource(R.string.installer_prepare_arch_32_notice)
     val tagEmulated = stringResource(R.string.tag_arch_emulated)
@@ -266,6 +265,8 @@ fun installPrepareDialog(
             labelSignatureNoCertificates = labelSignatureNoCertificates,
             tagSdk = tagSdk,
             textSdkIncompatible = sdkIncompatibleWarning,
+            tagOplusOsdk = tagOplusOsdk,
+            textOplusOsdkIncompatible = oplusOsdkIncompatibleWarning,
             tagArch32 = tagArch32,
             textArch32 = textArch32,
             tagEmulated = tagEmulated,
@@ -277,12 +278,19 @@ fun installPrepareDialog(
             labelXposedTargetApi = labelXposedTargetApi,
             errorColor = errorColor,
             tertiaryColor = tertiaryColor,
-            primaryColor = primaryColor
+            primaryColor = primaryColor,
         )
     }
 
     // Inject the pure domain use case
     val analyzeInstallStateUseCase = koinInject<AnalyzeInstallStateUseCase>()
+    val deviceCapabilityProvider = koinInject<DeviceCapabilityProvider>()
+    val checkOplusOsdk = settings.showOPPOSpecial &&
+        (
+            DeviceConfig.currentManufacturer == Manufacturer.OPPO ||
+                DeviceConfig.currentManufacturer == Manufacturer.ONEPLUS
+            )
+    val deviceOplusOsdkVersion = if (checkOplusOsdk) deviceCapabilityProvider.oplusOSdkVersion else null
 
     // Instantiate the UI mapper with the required Compose resources
     val installStateUiMapper = remember(installResources) {
@@ -300,7 +308,9 @@ fun installPrepareDialog(
         settings.showSignatureInfoOnMatch,
         settings.showSignatureDetails,
         settings.detectXposedModule,
-        installStateUiMapper
+        checkOplusOsdk,
+        deviceOplusOsdkVersion,
+        installStateUiMapper,
     ) {
         // 1. Get pure domain state
         val domainState = analyzeInstallStateUseCase(
@@ -311,10 +321,12 @@ fun installPrepareDialog(
             containerType = containerType,
             systemArch = DeviceConfig.currentArchitecture,
             systemSdkInt = Build.VERSION.SDK_INT,
+            checkOplusOsdk = checkOplusOsdk,
+            deviceOplusOsdkVersion = deviceOplusOsdkVersion,
             checkAppSignature = checkAppSignature,
             showSignatureInfoOnMatch = settings.showSignatureInfoOnMatch,
             showSignatureDetails = settings.showSignatureDetails,
-            detectXposedModule = settings.detectXposedModule
+            detectXposedModule = settings.detectXposedModule,
         )
 
         // 2. Map to UI state
@@ -326,22 +338,22 @@ fun installPrepareDialog(
     return baseParams.copy(
         // Subtitle is inherited from InstallInfoDialog (shows new version + package name)
         text = DialogInnerParams(
-            DialogParamsType.InstallerPrepareInstall.id
+            DialogParamsType.InstallerPrepareInstall.id,
         ) {
             LazyColumn(horizontalAlignment = Alignment.CenterHorizontally) {
                 item {
                     InstallInfoChipGroup(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        notices = notices
+                        notices = notices,
                     )
                 }
                 item {
                     AnimatedVisibility(
                         visible = (primaryEntity is AppEntity.ModuleEntity) &&
-                                primaryEntity.description.isNotBlank() &&
-                                config.displaySdk,
+                            primaryEntity.description.isNotBlank() &&
+                            config.displaySdk,
                         enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                        exit = fadeOut() + shrinkVertically(),
                     ) {
                         Surface(
                             modifier = Modifier
@@ -349,13 +361,13 @@ fun installPrepareDialog(
                                 .padding(vertical = 4.dp),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         ) {
                             Text(
                                 text = (primaryEntity as AppEntity.ModuleEntity).description,
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(12.dp)
+                                modifier = Modifier.padding(12.dp),
                             )
                         }
                     }
@@ -364,10 +376,10 @@ fun installPrepareDialog(
                     AnimatedVisibility(
                         visible = showChips,
                         enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
+                        exit = fadeOut() + shrinkVertically(),
                     ) {
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Chip(
                                 selected = config.autoDelete, // Read directly from config
@@ -376,7 +388,7 @@ fun installPrepareDialog(
                                     viewModel.updateConfig { it.copy(autoDelete = !it.autoDelete) }
                                 },
                                 label = stringResource(id = R.string.config_auto_delete),
-                                icon = AppIcons.Delete
+                                icon = AppIcons.Delete,
                             )
                             Chip(
                                 selected = config.displaySdk, // Read directly from config
@@ -385,7 +397,7 @@ fun installPrepareDialog(
                                     viewModel.updateConfig { it.copy(displaySdk = !it.displaySdk) }
                                 },
                                 label = stringResource(id = R.string.config_display_sdk_version),
-                                icon = AppIcons.Info
+                                icon = AppIcons.Info,
                             )
                             Chip(
                                 selected = config.displaySize, // Read directly from config
@@ -394,9 +406,11 @@ fun installPrepareDialog(
                                     viewModel.updateConfig { it.copy(displaySize = !it.displaySize) }
                                 },
                                 label = stringResource(id = R.string.config_display_size),
-                                icon = AppIcons.ShowSize
+                                icon = AppIcons.ShowSize,
                             )
-                            if (DeviceConfig.currentManufacturer == Manufacturer.OPPO || DeviceConfig.currentManufacturer == Manufacturer.ONEPLUS)
+                            if (DeviceConfig.currentManufacturer == Manufacturer.OPPO ||
+                                DeviceConfig.currentManufacturer == Manufacturer.ONEPLUS
+                            ) {
                                 Chip(
                                     selected = settings.showOPPOSpecial, // From viewSettings
                                     onClick = {
@@ -404,29 +418,34 @@ fun installPrepareDialog(
                                         viewModel.dispatch(InstallerViewAction.SetTempShowOPPOSpecial(newValue))
                                     },
                                     label = stringResource(id = R.string.installer_show_oem_special),
-                                    icon = AppIcons.OEMSpecial
+                                    icon = AppIcons.OEMSpecial,
                                 )
+                            }
                         }
                     }
                 }
 
                 val isInvalidSplitInstall = currentPackage.installedAppInfo == null &&
-                        entityToInstall == null &&
-                        selectedEntities.any { it is AppEntity.SplitEntity }
+                    entityToInstall == null &&
+                    selectedEntities.any { it is AppEntity.SplitEntity }
 
-                if (isInvalidSplitInstall)
+                if (isInvalidSplitInstall) {
                     item {
-                        WarningTextBlock(listOf(Pair(stringResource(R.string.installer_splits_invalid_tip), MaterialTheme.colorScheme.error)))
+                        WarningTextBlock(
+                            listOf(Pair(stringResource(R.string.installer_splits_invalid_tip), MaterialTheme.colorScheme.error)),
+                        )
                     }
+                }
             }
         },
         buttons = dialogButtons(
-            DialogParamsType.InstallerPrepareInstall.id
+            DialogParamsType.InstallerPrepareInstall.id,
         ) {
             // --- Use buildList to dynamically create buttons ---
             buildList {
                 val isAPK =
-                    containerType == DataType.APKS || containerType == DataType.XAPK || containerType == DataType.APKM || containerType == DataType.MIXED_MODULE_APK
+                    containerType == DataType.APKS || containerType == DataType.XAPK || containerType == DataType.APKM ||
+                        containerType == DataType.MIXED_MODULE_APK
 
                 val canInstallBaseEntity = (primaryEntity as? AppEntity.BaseEntity)?.let { base ->
                     if (entityToInstall != null) {
@@ -446,13 +465,16 @@ fun installPrepareDialog(
                     currentPackage.installedAppInfo != null
                 } ?: false
 
-                val canInstall = canInstallBaseEntity || canInstallModuleEntity || canInstallSplitEntity
+                val canInstall = !installStateResult.isOplusOsdkIncompatible &&
+                    (canInstallBaseEntity || canInstallModuleEntity || canInstallSplitEntity)
 
                 // only when the entity is a split APK, XAPK, or APKM
                 if (canInstall && settings.showExtendedMenu && isAPK) {
-                    add(DialogButton(stringResource(R.string.install_choice), 1f) {
-                        viewModel.dispatch(InstallerViewAction.InstallChoice)
-                    })
+                    add(
+                        DialogButton(stringResource(R.string.install_choice), 1f) {
+                            viewModel.dispatch(InstallerViewAction.InstallChoice)
+                        },
+                    )
                 }
                 if (canInstall) {
                     add(
@@ -470,28 +492,36 @@ fun installPrepareDialog(
                             },
                             onClick = {
                                 viewModel.dispatch(InstallerViewAction.Install(true))
-                                if (settings.autoSilentInstall && !viewModel.isInstallingModule)
+                                if (settings.autoSilentInstall && !viewModel.isInstallingModule) {
                                     viewModel.dispatch(InstallerViewAction.Background)
-                            }
-                        )
+                                }
+                            },
+                        ),
                     )
                 }
                 // else if app can be installed and extended menu is shown
                 if (canInstall && settings.showExtendedMenu && primaryEntity !is AppEntity.ModuleEntity) {
-                    add(DialogButton(stringResource(R.string.menu), 1f) {
-                        viewModel.dispatch(InstallerViewAction.InstallExtendedMenu)
-                    })
+                    add(
+                        DialogButton(stringResource(R.string.menu), 1f) {
+                            viewModel.dispatch(InstallerViewAction.InstallExtendedMenu)
+                        },
+                    )
                 }
-                if (canInstall && !settings.showExtendedMenu && isAPK)
-                    add(DialogButton(stringResource(R.string.install_choice), 1f) {
-                        viewModel.dispatch(InstallerViewAction.InstallChoice)
-                    })
+                if (canInstall && !settings.showExtendedMenu && isAPK) {
+                    add(
+                        DialogButton(stringResource(R.string.install_choice), 1f) {
+                            viewModel.dispatch(InstallerViewAction.InstallChoice)
+                        },
+                    )
+                }
                 // Cancel button always shown
-                add(DialogButton(stringResource(R.string.cancel), 1f) {
-                    viewModel.dispatch(InstallerViewAction.Close)
-                })
+                add(
+                    DialogButton(stringResource(R.string.cancel), 1f) {
+                        viewModel.dispatch(InstallerViewAction.Close)
+                    },
+                )
             }
             // --- BuildList END ---
-        }
+        },
     )
 }

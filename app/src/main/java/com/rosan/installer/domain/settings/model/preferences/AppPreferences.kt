@@ -82,10 +82,11 @@ data class AppPreferences(
     val useMiuixMonet: Boolean,
     val useAppleFloatingBar: Boolean,
     val seedColorInt: Int, // Stored as raw Int from DataStore
+    val wallpaperSeedColorInt: Int,
     val useDynColorFollowPkgIcon: Boolean,
     val useDynColorFollowPkgIconForLiveActivity: Boolean,
     val useBlur: Boolean,
     // Predictive Back Settings
     val predictiveBackAnimation: PredictiveBackAnimation,
-    val predictiveBackExitDirection: PredictiveBackExitDirection
+    val predictiveBackExitDirection: PredictiveBackExitDirection,
 )
