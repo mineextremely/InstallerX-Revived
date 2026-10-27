@@ -1,15 +1,52 @@
-name: Manual Magisk Module Build
+# Builds the installer APK that ships inside the Magisk module.
+#
+# This is not a general-purpose release build: it produces a Stable-flavor APK
+# with a fixed application ID (com.android.packageinstaller) and a dedicated
+# signing key, because that is what the Magisk module expects when it replaces
+# the system package manager. The artifact is meant to be consumed only by the
+# Magisk module, never distributed as a normal app release.
+#
+# Triggered by pushes to main that touch application or build inputs, and
+# manually from the Actions tab.
+name: Magisk Module APK Build
 
 on:
+  push:
+    branches: [ "main" ]
+    # Build only when application code or build inputs change.
+    paths:
+      - 'app/src/**'
+      - 'app/build.gradle.kts'
+      - 'app-process/src/**'
+      - 'app-process/build.gradle.kts'
+      - 'hidden-api/src/**'
+      - 'hidden-api/build.gradle.kts'
+      - 'baselineprofile/src/**'
+      - 'baselineprofile/build.gradle.kts'
+      - 'build-plugins/src/**'
+      - 'build-plugins/build.gradle.kts'
+      - 'build-plugins/settings.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/manual-magisk-build.yml'
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version name (e.g. 26.07 for Magisk module, leave empty for git-based)'
+        description: 'Version name used by the Magisk module APK (e.g. 26.07); leave empty to derive it from git'
         required: false
         default: ''
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build_magisk:
+    name: Build Magisk Module APK
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,7 +105,7 @@ jobs:
               -PAPP_ID="com.android.packageinstaller"
           fi
 
-      - name: Upload APK
+      - name: Upload Magisk Module APK
         uses: actions/upload-artifact@v7
         with:
           name: magisk-apk
